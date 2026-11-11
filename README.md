@@ -2,7 +2,23 @@
 
 Open-source (Apache-2.0) warehouse management API for Mexican food banks, by RapiJazz A.C.
 
-> Status: **Phase 1** — skeleton, multi-tenant `DbContext`, first migration, health checks, CI.
+> Status: **Phase 2** — donors, products, storage locations, donation intake → inventory lots,
+> FluentValidation, ProblemDetails and optimistic concurrency (ETag / If-Match).
+
+## API (v1)
+
+Every `/api/v1/...` call needs the `X-FoodBank-Id` header.
+
+| Resource | Endpoints |
+|---|---|
+| `donors` | `POST`, `GET` (paged), `GET {id}`, `PUT {id}` (requires `If-Match`) |
+| `products` | `POST`, `GET` (paged, `?category=`), `GET {id}`, `PUT {id}` (requires `If-Match`) |
+| `storage-locations` | `POST`, `GET` |
+| `donation-intakes` | `POST` (creates one inventory lot per line, all or nothing), `GET {id}` |
+| `inventory-lots` | `GET` (FEFO order; `?productId=&status=&expiringOnOrBefore=`), `GET {id}` |
+
+Errors are RFC 9457 ProblemDetails: 400 validation, 404 not found, 409 duplicate, 412 stale
+`If-Match`, 422 business rule (with a `code`, e.g. `lot.expiry_required`), 428 missing `If-Match`.
 
 ## Run locally
 

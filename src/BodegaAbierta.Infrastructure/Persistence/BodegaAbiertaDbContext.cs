@@ -1,15 +1,18 @@
 using System.Reflection;
 using BodegaAbierta.Application.Abstractions;
 using BodegaAbierta.Domain.Common;
+using BodegaAbierta.Domain.Donors;
 using BodegaAbierta.Domain.FoodBanks;
+using BodegaAbierta.Domain.Inventory;
 using BodegaAbierta.Domain.Locations;
+using BodegaAbierta.Domain.Products;
 using Microsoft.EntityFrameworkCore;
 
 namespace BodegaAbierta.Infrastructure.Persistence;
 
 public sealed class BodegaAbiertaDbContext(
     DbContextOptions<BodegaAbiertaDbContext> options,
-    ITenantContext tenantContext) : DbContext(options)
+    ITenantContext tenantContext) : DbContext(options), IBodegaDbContext
 {
     /// <summary>Name of the tenant query filter; use <c>IgnoreQueryFilters([TenantFilter])</c> to bypass it on purpose.</summary>
     public const string TenantFilter = "Tenant";
@@ -21,23 +24,43 @@ public sealed class BodegaAbiertaDbContext(
 
     public DbSet<StorageLocation> StorageLocations => Set<StorageLocation>();
 
+    public DbSet<Donor> Donors => Set<Donor>();
+
+    public DbSet<Product> Products => Set<Product>();
+
+    public DbSet<DonationIntake> DonationIntakes => Set<DonationIntake>();
+
+    public DbSet<InventoryLot> InventoryLots => Set<InventoryLot>();
+
     /// <summary>
     /// Read by the query filter on every query. Because it is a member of the context (not a captured
     /// constant), EF Core turns it into a SQL parameter, so one cached model serves every tenant.
     /// </summary>
     internal Guid? CurrentFoodBankId => tenantContext.FoodBankId;
 
+    public void SetExpectedRowVersion<TEntity>(TEntity entity, byte[] expectedRowVersion)
+        where TEntity : class, IVersioned
+        => Entry(entity).Property(e => e.RowVersion).OriginalValue = expectedRowVersion;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(BodegaAbiertaDbContext).Assembly);
 
-        // Every root entity type implementing ITenantOwned gets the tenant filter automatically,
-        // so a new entity cannot "forget" it.
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
-            if (entityType.BaseType is null && typeof(ITenantOwned).IsAssignableFrom(entityType.ClrType))
+            var clrType = entityType.ClrType;
+
+            // Every root entity type implementing ITenantOwned gets the tenant filter automatically,
+            // so a new entity cannot "forget" it.
+            if (entityType.BaseType is null && typeof(ITenantOwned).IsAssignableFrom(clrType))
             {
-                ApplyTenantFilterMethod.MakeGenericMethod(entityType.ClrType).Invoke(this, [modelBuilder]);
+                ApplyTenantFilterMethod.MakeGenericMethod(clrType).Invoke(this, [modelBuilder]);
+            }
+
+            // Optimistic concurrency by convention: IVersioned.RowVersion -> SQL Server rowversion.
+            if (typeof(IVersioned).IsAssignableFrom(clrType))
+            {
+                modelBuilder.Entity(clrType).Property(nameof(IVersioned.RowVersion)).IsRowVersion();
             }
         }
     }

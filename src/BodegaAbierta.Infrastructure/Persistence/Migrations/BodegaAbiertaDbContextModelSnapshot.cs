@@ -22,6 +22,48 @@ namespace BodegaAbierta.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("BodegaAbierta.Domain.Donors.Donor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid>("FoodBankId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FoodBankId", "Name");
+
+                    b.ToTable("Donors", (string)null);
+                });
+
             modelBuilder.Entity("BodegaAbierta.Domain.FoodBanks.FoodBank", b =>
                 {
                     b.Property<Guid>("Id")
@@ -35,6 +77,103 @@ namespace BodegaAbierta.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("FoodBanks", (string)null);
+                });
+
+            modelBuilder.Entity("BodegaAbierta.Domain.Inventory.DonationIntake", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("DonorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("FoodBankId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ReceivedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DonorId");
+
+                    b.HasIndex("FoodBankId", "ReceivedAt");
+
+                    b.ToTable("DonationIntakes", (string)null);
+                });
+
+            modelBuilder.Entity("BodegaAbierta.Domain.Inventory.InventoryLot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("DonationIntakeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("ExpiresOn")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("FoodBankId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("InitialQuantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("QuantityOnHand")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("StorageLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DonationIntakeId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("StorageLocationId");
+
+                    b.HasIndex("FoodBankId", "ProductId", "Status", "ExpiresOn");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("FoodBankId", "ProductId", "Status", "ExpiresOn"), new[] { "QuantityOnHand" });
+
+                    b.ToTable("InventoryLots", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_InventoryLots_Quantities", "[InitialQuantity] > 0 AND [QuantityOnHand] >= 0 AND [QuantityOnHand] <= [InitialQuantity]");
+                        });
                 });
 
             modelBuilder.Entity("BodegaAbierta.Domain.Locations.StorageLocation", b =>
@@ -68,6 +207,97 @@ namespace BodegaAbierta.Infrastructure.Persistence.Migrations
                     b.ToTable("StorageLocations", (string)null);
                 });
 
+            modelBuilder.Entity("BodegaAbierta.Domain.Products.Product", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("FoodBankId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsPerishable")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FoodBankId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Products", (string)null);
+                });
+
+            modelBuilder.Entity("BodegaAbierta.Domain.Donors.Donor", b =>
+                {
+                    b.HasOne("BodegaAbierta.Domain.FoodBanks.FoodBank", null)
+                        .WithMany()
+                        .HasForeignKey("FoodBankId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("BodegaAbierta.Domain.Inventory.DonationIntake", b =>
+                {
+                    b.HasOne("BodegaAbierta.Domain.Donors.Donor", null)
+                        .WithMany()
+                        .HasForeignKey("DonorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BodegaAbierta.Domain.FoodBanks.FoodBank", null)
+                        .WithMany()
+                        .HasForeignKey("FoodBankId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("BodegaAbierta.Domain.Inventory.InventoryLot", b =>
+                {
+                    b.HasOne("BodegaAbierta.Domain.Inventory.DonationIntake", null)
+                        .WithMany("Lots")
+                        .HasForeignKey("DonationIntakeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BodegaAbierta.Domain.FoodBanks.FoodBank", null)
+                        .WithMany()
+                        .HasForeignKey("FoodBankId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BodegaAbierta.Domain.Products.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BodegaAbierta.Domain.Locations.StorageLocation", null)
+                        .WithMany()
+                        .HasForeignKey("StorageLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("BodegaAbierta.Domain.Locations.StorageLocation", b =>
                 {
                     b.HasOne("BodegaAbierta.Domain.FoodBanks.FoodBank", null)
@@ -75,6 +305,20 @@ namespace BodegaAbierta.Infrastructure.Persistence.Migrations
                         .HasForeignKey("FoodBankId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("BodegaAbierta.Domain.Products.Product", b =>
+                {
+                    b.HasOne("BodegaAbierta.Domain.FoodBanks.FoodBank", null)
+                        .WithMany()
+                        .HasForeignKey("FoodBankId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("BodegaAbierta.Domain.Inventory.DonationIntake", b =>
+                {
+                    b.Navigation("Lots");
                 });
 #pragma warning restore 612, 618
         }

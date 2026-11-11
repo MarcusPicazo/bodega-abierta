@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
 using Asp.Versioning;
+using BodegaAbierta.Api.Http;
 using BodegaAbierta.Api.Tenancy;
+using BodegaAbierta.Application;
 using BodegaAbierta.Application.Abstractions;
 using BodegaAbierta.Infrastructure;
 using BodegaAbierta.Infrastructure.Persistence;
@@ -7,14 +10,23 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services
+    .AddControllers(options =>
+    {
+        // FluentValidation is the single source of validation rules; don't let MVC add implicit
+        // [Required] errors for non-nullable reference types with different keys and messages.
+        options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+    })
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
+builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services
     .AddApiVersioning(options =>
     {
         options.DefaultApiVersion = new ApiVersion(1, 0);
-        options.AssumeDefaultVersionWhenUnspecified = true;
         options.ReportApiVersions = true;
         options.ApiVersionReader = new UrlSegmentApiVersionReader();
     })
@@ -28,6 +40,7 @@ builder.Services
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantContext, HttpTenantContext>();
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 
 builder.Services.AddHealthChecks()
