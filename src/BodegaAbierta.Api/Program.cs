@@ -1,11 +1,13 @@
 using System.Text.Json.Serialization;
 using Asp.Versioning;
+using BodegaAbierta.Api.Auth;
 using BodegaAbierta.Api.Http;
 using BodegaAbierta.Api.Tenancy;
 using BodegaAbierta.Application;
 using BodegaAbierta.Application.Abstractions;
 using BodegaAbierta.Infrastructure;
 using BodegaAbierta.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,6 +42,15 @@ builder.Services
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantContext, HttpTenantContext>();
+builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
+
+// Header-based dev/test authentication until real JWT/OIDC is added (no-op in other environments).
+builder.Services
+    .AddAuthentication(DevHeaderAuthenticationHandler.SchemeName)
+    .AddScheme<AuthenticationSchemeOptions, DevHeaderAuthenticationHandler>(DevHeaderAuthenticationHandler.SchemeName, null);
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(AuthPolicies.Coordinator, policy => policy.RequireRole(Roles.Coordinator));
+
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 
@@ -55,6 +66,9 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi().WithDocumentPerVersion();
 }
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 

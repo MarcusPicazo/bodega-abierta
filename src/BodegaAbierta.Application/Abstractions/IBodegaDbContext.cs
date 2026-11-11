@@ -1,4 +1,6 @@
+using BodegaAbierta.Domain.Auditing;
 using BodegaAbierta.Domain.Common;
+using BodegaAbierta.Domain.Policies;
 using BodegaAbierta.Domain.Donors;
 using BodegaAbierta.Domain.FoodBanks;
 using BodegaAbierta.Domain.Inventory;
@@ -26,7 +28,17 @@ public interface IBodegaDbContext
 
     DbSet<InventoryLot> InventoryLots { get; }
 
+    DbSet<PolicySet> PolicySets { get; }
+
+    DbSet<AuditEntry> AuditEntries { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs <paramref name="work"/> (which may call SaveChangesAsync several times) inside one database
+    /// transaction, wrapped in EF Core's execution strategy so it plays well with retry-on-failure.
+    /// </summary>
+    Task ExecuteInTransactionAsync(Func<CancellationToken, Task> work, CancellationToken cancellationToken);
 
     /// <summary>
     /// Tells EF Core which version the client last saw. The UPDATE then includes

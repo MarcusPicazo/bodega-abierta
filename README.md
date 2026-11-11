@@ -2,8 +2,8 @@
 
 Open-source (Apache-2.0) warehouse management API for Mexican food banks, by RapiJazz A.C.
 
-> Status: **Phase 2** — donors, products, storage locations, donation intake → inventory lots,
-> FluentValidation, ProblemDetails and optimistic concurrency (ETag / If-Match).
+> Status: **Phase 3** — versioned policy sets with an approval workflow and an automatic audit trail
+> (on top of Phase 2: donors, products, intake → inventory lots, validation, optimistic concurrency).
 
 ## API (v1)
 
@@ -16,6 +16,16 @@ Every `/api/v1/...` call needs the `X-FoodBank-Id` header.
 | `storage-locations` | `POST`, `GET` |
 | `donation-intakes` | `POST` (creates one inventory lot per line, all or nothing), `GET {id}` |
 | `inventory-lots` | `GET` (FEFO order; `?productId=&status=&expiringOnOrBefore=`), `GET {id}` |
+| `policies` 🔒 | `POST` (draft, optional `copyFromPolicySetId`), `GET`, `GET active`, `GET {id}`, `PUT {id}`, `POST {id}/submit`, `POST {id}/approve` 👑, `POST {id}/reject` 👑 |
+| `audit-entries` 👑 | `GET` (`?entityType=&entityId=`) |
+
+🔒 requires a user · 👑 requires the `Coordinator` role. Until real JWT/OIDC exists, Development and
+Testing accept the `X-User-Id` and `X-User-Roles` headers (ignored in any other environment).
+
+Policy sets move Draft → PendingApproval → Active → Retired (rejection sends PendingApproval back to
+Draft). The submitter cannot approve their own version, and a filtered unique index guarantees at most
+one Active version per food bank. Every create/update/delete is recorded in `AuditEntries` by an EF
+Core `SaveChangesInterceptor` (changed values before/after as JSON, actor, timestamp) in the same transaction.
 
 Errors are RFC 9457 ProblemDetails: 400 validation, 404 not found, 409 duplicate, 412 stale
 `If-Match`, 422 business rule (with a `code`, e.g. `lot.expiry_required`), 428 missing `If-Match`.

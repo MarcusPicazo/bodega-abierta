@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using BodegaAbierta.Api.Auth;
 using BodegaAbierta.Api.Tenancy;
 using BodegaAbierta.Domain.FoodBanks;
 using BodegaAbierta.Domain.Locations;
@@ -39,6 +40,40 @@ public abstract class ApiTestBase(SqlServerFixture sql) : IAsyncLifetime
         var client = Factory.CreateClient();
         client.DefaultRequestHeaders.Add(HttpTenantContext.HeaderName, foodBank.Id.ToString());
         return new TestTenant(foodBank.Id, location.Id, client);
+    }
+
+    /// <summary>A client for the same food bank acting as a specific (dev-header) user.</summary>
+    protected HttpClient CreateClientAs(TestTenant tenant, string userId, params string[] roles)
+    {
+        ArgumentNullException.ThrowIfNull(tenant);
+        var client = Factory.CreateClient();
+        client.DefaultRequestHeaders.Add(HttpTenantContext.HeaderName, tenant.FoodBankId.ToString());
+        client.DefaultRequestHeaders.Add(DevHeaderAuthenticationHandler.UserIdHeader, userId);
+        if (roles.Length > 0)
+        {
+            client.DefaultRequestHeaders.Add(DevHeaderAuthenticationHandler.RolesHeader, string.Join(',', roles));
+        }
+
+        return client;
+    }
+
+    /// <summary>Sends a request with an If-Match header (null = omit it).</summary>
+    protected static Task<HttpResponseMessage> SendWithIfMatchAsync(
+        HttpClient client, HttpMethod method, string url, string? etag, object? body = null)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        var request = new HttpRequestMessage(method, url);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body, body.GetType(), options: Json);
+        }
+
+        if (etag is not null)
+        {
+            request.Headers.IfMatch.Add(System.Net.Http.Headers.EntityTagHeaderValue.Parse(etag));
+        }
+
+        return client.SendAsync(request, Ct);
     }
 
     protected static async Task<T> ReadAsync<T>(HttpResponseMessage response)

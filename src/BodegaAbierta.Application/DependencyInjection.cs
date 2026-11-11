@@ -1,7 +1,9 @@
 using System.Text.Json;
+using BodegaAbierta.Application.Auditing;
 using BodegaAbierta.Application.Donors;
 using BodegaAbierta.Application.Intakes;
 using BodegaAbierta.Application.Inventory;
+using BodegaAbierta.Application.Policies;
 using BodegaAbierta.Application.Products;
 using BodegaAbierta.Application.StorageLocations;
 using FluentValidation;
@@ -24,6 +26,8 @@ public static class DependencyInjection
         services.AddScoped<StorageLocationService>();
         services.AddScoped<DonationIntakeService>();
         services.AddScoped<InventoryLotService>();
+        services.AddScoped<PolicySetService>();
+        services.AddScoped<AuditEntryService>();
 
         return services;
     }

@@ -1,6 +1,8 @@
 using System.Reflection;
 using BodegaAbierta.Application.Abstractions;
+using BodegaAbierta.Domain.Auditing;
 using BodegaAbierta.Domain.Common;
+using BodegaAbierta.Domain.Policies;
 using BodegaAbierta.Domain.Donors;
 using BodegaAbierta.Domain.FoodBanks;
 using BodegaAbierta.Domain.Inventory;
@@ -32,6 +34,10 @@ public sealed class BodegaAbiertaDbContext(
 
     public DbSet<InventoryLot> InventoryLots => Set<InventoryLot>();
 
+    public DbSet<PolicySet> PolicySets => Set<PolicySet>();
+
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+
     /// <summary>
     /// Read by the query filter on every query. Because it is a member of the context (not a captured
     /// constant), EF Core turns it into a SQL parameter, so one cached model serves every tenant.
@@ -41,6 +47,20 @@ public sealed class BodegaAbiertaDbContext(
     public void SetExpectedRowVersion<TEntity>(TEntity entity, byte[] expectedRowVersion)
         where TEntity : class, IVersioned
         => Entry(entity).Property(e => e.RowVersion).OriginalValue = expectedRowVersion;
+
+    public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> work, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+
+        // With EnableRetryOnFailure a user-initiated transaction must run inside the execution strategy,
+        // so a transient failure retries the whole unit (BeginTransaction ... Commit) and not half of it.
+        return Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+        {
+            await using var transaction = await Database.BeginTransactionAsync(ct);
+            await work(ct);
+            await transaction.CommitAsync(ct);
+        }, cancellationToken);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

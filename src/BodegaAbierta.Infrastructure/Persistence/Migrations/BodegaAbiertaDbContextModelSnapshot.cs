@@ -22,6 +22,50 @@ namespace BodegaAbierta.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("BodegaAbierta.Domain.Auditing.AuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("AfterJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BeforeJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("FoodBankId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("Timestamp")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FoodBankId", "EntityType", "EntityId", "Timestamp");
+
+                    b.ToTable("AuditEntries", (string)null);
+                });
+
             modelBuilder.Entity("BodegaAbierta.Domain.Donors.Donor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -207,6 +251,113 @@ namespace BodegaAbierta.Infrastructure.Persistence.Migrations
                     b.ToTable("StorageLocations", (string)null);
                 });
 
+            modelBuilder.Entity("BodegaAbierta.Domain.Policies.PolicyRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("FoodBankId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ParametersJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("PolicySetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicySetId", "Type")
+                        .IsUnique();
+
+                    b.ToTable("PolicyRules", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PolicyRules_ParametersIsJson", "ISJSON([ParametersJson]) = 1");
+                        });
+                });
+
+            modelBuilder.Entity("BodegaAbierta.Domain.Policies.PolicySet", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("FoodBankId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("LastModifiedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("ReplacedByPolicySetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("RetiredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTimeOffset?>("SubmittedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("SubmittedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FoodBankId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PolicySets_OneActivePerFoodBank")
+                        .HasFilter("[Status] = 'Active'");
+
+                    b.HasIndex("ReplacedByPolicySetId");
+
+                    b.HasIndex("FoodBankId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("PolicySets", (string)null);
+                });
+
             modelBuilder.Entity("BodegaAbierta.Domain.Products.Product", b =>
                 {
                     b.Property<Guid>("Id")
@@ -307,6 +458,29 @@ namespace BodegaAbierta.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("BodegaAbierta.Domain.Policies.PolicyRule", b =>
+                {
+                    b.HasOne("BodegaAbierta.Domain.Policies.PolicySet", null)
+                        .WithMany("Rules")
+                        .HasForeignKey("PolicySetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("BodegaAbierta.Domain.Policies.PolicySet", b =>
+                {
+                    b.HasOne("BodegaAbierta.Domain.FoodBanks.FoodBank", null)
+                        .WithMany()
+                        .HasForeignKey("FoodBankId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BodegaAbierta.Domain.Policies.PolicySet", null)
+                        .WithMany()
+                        .HasForeignKey("ReplacedByPolicySetId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("BodegaAbierta.Domain.Products.Product", b =>
                 {
                     b.HasOne("BodegaAbierta.Domain.FoodBanks.FoodBank", null)
@@ -319,6 +493,11 @@ namespace BodegaAbierta.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("BodegaAbierta.Domain.Inventory.DonationIntake", b =>
                 {
                     b.Navigation("Lots");
+                });
+
+            modelBuilder.Entity("BodegaAbierta.Domain.Policies.PolicySet", b =>
+                {
+                    b.Navigation("Rules");
                 });
 #pragma warning restore 612, 618
         }
