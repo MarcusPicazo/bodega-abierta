@@ -2,4 +2,9 @@
   <ItemGroup>
     <ProjectReference Include="..\BodegaAbierta.Domain\BodegaAbierta.Domain.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Pragmatic trade-off: use cases query through IBodegaDbContext (DbSet + LINQ) instead of repositories. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+  </ItemGroup>
 </Project>

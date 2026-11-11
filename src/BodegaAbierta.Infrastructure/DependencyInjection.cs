@@ -1,3 +1,4 @@
+using BodegaAbierta.Application.Abstractions;
 using BodegaAbierta.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -25,6 +26,9 @@ public static class DependencyInjection
 
             options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure());
         });
+
+        // Same scoped instance whether a class asks for the concrete context or the Application port.
+        services.AddScoped<IBodegaDbContext>(sp => sp.GetRequiredService<BodegaAbiertaDbContext>());
 
         return services;
     }
