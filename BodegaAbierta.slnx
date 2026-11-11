@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BodegaAbierta.Api/BodegaAbierta.Api.csproj" />
+    <Project Path="src/BodegaAbierta.Application/BodegaAbierta.Application.csproj" />
+    <Project Path="src/BodegaAbierta.Domain/BodegaAbierta.Domain.csproj" />
+    <Project Path="src/BodegaAbierta.Infrastructure/BodegaAbierta.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BodegaAbierta.IntegrationTests/BodegaAbierta.IntegrationTests.csproj" />
+    <Project Path="tests/BodegaAbierta.UnitTests/BodegaAbierta.UnitTests.csproj" />
+  </Folder>
+</Solution>
