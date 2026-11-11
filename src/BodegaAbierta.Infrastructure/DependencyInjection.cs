@@ -1,4 +1,5 @@
 using BodegaAbierta.Application.Abstractions;
+using BodegaAbierta.Infrastructure.Auditing;
 using BodegaAbierta.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -25,7 +26,12 @@ public static class DependencyInjection
             }
 
             options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure());
+
+            // Resolved from the same request scope, so it sees this request's user.
+            options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
         });
+
+        services.AddScoped<AuditSaveChangesInterceptor>();
 
         // Same scoped instance whether a class asks for the concrete context or the Application port.
         services.AddScoped<IBodegaDbContext>(sp => sp.GetRequiredService<BodegaAbiertaDbContext>());

@@ -33,6 +33,10 @@ internal sealed class ProblemDetailsExceptionHandler(IProblemDetailsService prob
 
             TenantNotResolvedException e => Create(StatusCodes.Status400BadRequest, "Food bank not resolved", e.Message),
 
+            UnauthenticatedException e => Create(StatusCodes.Status401Unauthorized, "Unauthorized", e.Message),
+
+            ForbiddenException e => Create(StatusCodes.Status403Forbidden, "Forbidden", e.Message),
+
             NotFoundException e => Create(StatusCodes.Status404NotFound, "Resource not found", e.Message),
 
             DomainRuleException e => WithCode(
