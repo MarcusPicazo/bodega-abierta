@@ -1,7 +1,9 @@
 using BodegaAbierta.Application.Abstractions;
 using BodegaAbierta.Application.Common;
+using BodegaAbierta.Application.Rules;
 using BodegaAbierta.Domain.Policies;
 using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 
 namespace BodegaAbierta.Application.Policies;
@@ -13,7 +15,8 @@ public sealed class PolicySetService(
     TimeProvider timeProvider,
     IValidator<CreatePolicySetRequest> createValidator,
     IValidator<UpdatePolicySetRequest> updateValidator,
-    IValidator<RejectPolicySetRequest> rejectValidator)
+    IValidator<RejectPolicySetRequest> rejectValidator,
+    PolicyEngine engine)
 {
     public async Task<PolicySetResponse> CreateDraftAsync(CreatePolicySetRequest request, CancellationToken cancellationToken)
     {
@@ -32,8 +35,10 @@ public sealed class PolicySetService(
         }
         else
         {
-            rules = request.Rules!.ToDefinitions();
+            rules = request.Rules!.ToDefinitions().ToList();
         }
+
+        EnsureParametersAreValid(rules);
 
         // Concurrent creates could compute the same number; the unique (FoodBankId, Version) index turns that into 409.
         var nextVersion = (await db.PolicySets.MaxAsync(p => (int?)p.Version, cancellationToken) ?? 0) + 1;
@@ -81,9 +86,12 @@ public sealed class PolicySetService(
         currentUser.RequireUserId();
         await updateValidator.ValidateAndThrowAsync(request, cancellationToken);
 
+        var rules = request.Rules.ToDefinitions().ToList();
+        EnsureParametersAreValid(rules);
+
         var policy = await LoadAsync(id, cancellationToken);
         db.SetExpectedRowVersion(policy, expectedVersion);
-        policy.Edit(request.Description, request.Rules.ToDefinitions(), timeProvider.GetUtcNow());
+        policy.Edit(request.Description, rules, timeProvider.GetUtcNow());
         await db.SaveChangesAsync(cancellationToken);
 
         return policy.ToResponse();
@@ -149,6 +157,20 @@ public sealed class PolicySetService(
         await db.SaveChangesAsync(cancellationToken);
 
         return policy.ToResponse();
+    }
+
+    /// <summary>Each rule's JSON must match its strategy's parameter schema (400 with "rules[i].parameters").</summary>
+    private void EnsureParametersAreValid(IEnumerable<RuleDefinition> rules)
+    {
+        var failures = rules
+            .SelectMany((rule, i) => engine.ValidateParameters(rule.Type, rule.ParametersJson)
+                .Select(error => new ValidationFailure($"rules[{i}].parameters", $"{rule.Type}: {error}")))
+            .ToList();
+
+        if (failures.Count > 0)
+        {
+            throw new ValidationException(failures);
+        }
     }
 
     private async Task<PolicySet> LoadAsync(Guid id, CancellationToken cancellationToken, bool tracking = true)

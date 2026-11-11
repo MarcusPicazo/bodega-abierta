@@ -2,8 +2,9 @@
 
 Open-source (Apache-2.0) warehouse management API for Mexican food banks, by RapiJazz A.C.
 
-> Status: **Phase 3** — versioned policy sets with an approval workflow and an automatic audit trail
-> (on top of Phase 2: donors, products, intake → inventory lots, validation, optimistic concurrency).
+> Status: **Phase 4** — rules engine (strategy pattern) over the Active policy set, FEFO allocation for
+> distributions, pickup slots with capacity, and `POST /api/v1/policies/evaluate`
+> (on top of Phases 1–3: multi-tenancy, inventory intake, versioned policies with approval, audit trail).
 
 ## API (v1)
 
@@ -18,6 +19,27 @@ Every `/api/v1/...` call needs the `X-FoodBank-Id` header.
 | `inventory-lots` | `GET` (FEFO order; `?productId=&status=&expiringOnOrBefore=`), `GET {id}` |
 | `policies` 🔒 | `POST` (draft, optional `copyFromPolicySetId`), `GET`, `GET active`, `GET {id}`, `PUT {id}`, `POST {id}/submit`, `POST {id}/approve` 👑, `POST {id}/reject` 👑 |
 | `audit-entries` 👑 | `GET` (`?entityType=&entityId=`) |
+| `policies/evaluate` 🔒 | `POST` dry run → `{ allowed, policySetId, policySetVersion, violations[], allocation[] }` |
+| `beneficiaries` | `POST`, `GET` (paged), `GET {id}` |
+| `pickup-slots` 🔒 | `POST` (checked against `PickupWindow`), `GET` (`?from=&to=`), `GET {id}` |
+| `distributions` 🔒 | `POST` (FEFO allocation + slot booking; 422 with `violations`, 409 on concurrent stock/slot changes), `GET {id}` |
+| `inventory-lots/expiry-alerts` | `GET` lots expiring within the Active policy's `ExpiryAlert` days |
+
+### Rules engine
+
+Each rule type is a strategy (`IPolicyRuleEvaluator`) with typed JSON parameters, validated when a
+policy set is created or edited:
+
+| Rule | Parameters (example) | Applies to |
+|---|---|---|
+| `FefoAllocation` | `{}` | distributions: a hand-picked lot must not skip an earlier-expiring one |
+| `ExpiryAlert` | `{"daysBeforeExpiry":3}` | distributions (warning only) and `expiry-alerts` |
+| `PickupWindow` | `{"days":["Tuesday","Thursday"],"open":"09:00","close":"14:00","maxSlotCapacity":40}` | pickup slots and distributions |
+| `BeneficiaryLimit` | `{"maxKg":25,"periodDays":7}` | distributions (kilogram products only) |
+| `DonorDropOffHours` | `{"days":["Monday","Friday"],"open":"08:00","close":"12:00"}` | donation intakes |
+
+Times are local to `timeZone` (default `America/Mexico_City`). Built-in checks (stock, slot capacity,
+inactive beneficiary, slot in the past) apply even without an Active policy.
 
 🔒 requires a user · 👑 requires the `Coordinator` role. Until real JWT/OIDC exists, Development and
 Testing accept the `X-User-Id` and `X-User-Roles` headers (ignored in any other environment).

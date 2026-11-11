@@ -1,4 +1,6 @@
 using BodegaAbierta.Domain.Auditing;
+using BodegaAbierta.Domain.Beneficiaries;
+using BodegaAbierta.Domain.Distributions;
 using BodegaAbierta.Domain.Common;
 using BodegaAbierta.Domain.Policies;
 using BodegaAbierta.Domain.Donors;
@@ -29,6 +31,12 @@ public interface IBodegaDbContext
     DbSet<InventoryLot> InventoryLots { get; }
 
     DbSet<PolicySet> PolicySets { get; }
+
+    DbSet<Beneficiary> Beneficiaries { get; }
+
+    DbSet<PickupSlot> PickupSlots { get; }
+
+    DbSet<Distribution> Distributions { get; }
 
     DbSet<AuditEntry> AuditEntries { get; }
 

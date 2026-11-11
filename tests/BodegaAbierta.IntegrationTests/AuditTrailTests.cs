@@ -64,7 +64,7 @@ public sealed class AuditTrailTests(SqlServerFixture sql) : ApiTestBase(sql)
             new CreatePolicySetRequest(null, [new(RuleType.FefoAllocation, empty)], null)));
         var edited = await ReadAsync<PolicySetResponse>(await SendWithIfMatchAsync(staff, HttpMethod.Put,
             $"/api/v1/policies/{draft.Id}", $"\"{draft.RowVersion}\"",
-            new UpdatePolicySetRequest(null, [new(RuleType.ExpiryAlert, empty)])));
+            new UpdatePolicySetRequest(null, [new(RuleType.ExpiryAlert, JsonDocument.Parse("""{"daysBeforeExpiry":3}""").RootElement)])));
         var pending = await ReadAsync<PolicySetResponse>(await SendWithIfMatchAsync(staff, HttpMethod.Post,
             $"/api/v1/policies/{edited.Id}/submit", $"\"{edited.RowVersion}\""));
         (await SendWithIfMatchAsync(coordinator, HttpMethod.Post, $"/api/v1/policies/{pending.Id}/approve", $"\"{pending.RowVersion}\""))

@@ -1,5 +1,6 @@
 using BodegaAbierta.Application.Abstractions;
 using BodegaAbierta.Application.Common;
+using BodegaAbierta.Application.Rules;
 using BodegaAbierta.Domain.Inventory;
 using FluentValidation;
 using FluentValidation.Results;
@@ -11,7 +12,8 @@ public sealed class DonationIntakeService(
     IBodegaDbContext db,
     ITenantContext tenant,
     IValidator<CreateDonationIntakeRequest> validator,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    PolicyGate policyGate)
 {
     /// <summary>
     /// Registers a delivery and creates one inventory lot per line. The intake and all its lots are
@@ -63,7 +65,13 @@ public sealed class DonationIntakeService(
             throw new ValidationException(failures);
         }
 
-        var intake = new DonationIntake(donor!, request.ReceivedBy, request.ReceivedAt ?? timeProvider.GetUtcNow(), request.Notes);
+        // Phase 4: if the Active policy has DonorDropOffHours, deliveries outside those hours are rejected (422).
+        var receivedAt = request.ReceivedAt ?? timeProvider.GetUtcNow();
+        var evaluation = await policyGate.EvaluateAsync(
+            EvaluationContext.For(new DonorDropOffProposal(donor!.Id, receivedAt)), [], cancellationToken);
+        evaluation.EnsureAllowed();
+
+        var intake = new DonationIntake(donor, request.ReceivedBy, receivedAt, request.Notes);
         foreach (var line in request.Lines)
         {
             intake.AddLot(products[line.ProductId], line.StorageLocationId, line.Quantity, line.ExpiresOn);

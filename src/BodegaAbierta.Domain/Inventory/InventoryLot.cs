@@ -61,6 +61,40 @@ public sealed class InventoryLot : VersionedEntity, ITenantOwned
 
     public LotStatus Status { get; private set; }
 
+    /// <summary>Usable for an allocation on <paramref name="onDate"/>: available, with stock, not expired that day.</summary>
+    public bool IsAllocatableOn(DateOnly onDate)
+        => Status == LotStatus.Available && QuantityOnHand > 0 && (ExpiresOn is null || ExpiresOn >= onDate);
+
+    /// <summary>Takes <paramref name="quantity"/> out of this lot for a distribution.</summary>
+    public void Allocate(decimal quantity)
+    {
+        if (quantity <= 0)
+        {
+            throw new DomainRuleException("lot.quantity_not_positive", "Allocated quantity must be greater than zero.");
+        }
+
+        if (Status != LotStatus.Available)
+        {
+            throw new DomainRuleException("lot.not_available", $"Lot {Id} is {Status} and cannot be allocated.");
+        }
+
+        if (quantity > QuantityOnHand)
+        {
+            throw new DomainRuleException(
+                "lot.insufficient_quantity", $"Lot {Id} has {QuantityOnHand} on hand; {quantity} was requested.");
+        }
+
+        QuantityOnHand -= quantity;
+        if (QuantityOnHand == 0)
+        {
+            Status = LotStatus.Distributed;
+        }
+    }
+
+    // TODO(Marcus) [Phase 4]: add `internal void Release(decimal quantity)` for Distribution.Cancel: give the
+    // quantity back (QuantityOnHand += quantity, never above InitialQuantity -> DomainRuleException
+    // "lot.release_exceeds_initial"), and if the lot was Distributed set it back to Available.
+
     // TODO(Marcus): add `public void MoveTo(Guid storageLocationId)`. Rules: Guid.Empty -> ArgumentException;
     // only lots in status Available or Reserved can move (otherwise DomainRuleException with code
     // "lot.not_movable"); moving to the same location is a no-op. Fill in the skipped test stubs in
