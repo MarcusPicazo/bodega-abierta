@@ -1,5 +1,6 @@
 using BodegaAbierta.Application.Abstractions;
 using BodegaAbierta.Application.Common;
+using BodegaAbierta.Application.Rules;
 using BodegaAbierta.Domain.Common;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
@@ -38,6 +39,12 @@ internal sealed class ProblemDetailsExceptionHandler(IProblemDetailsService prob
             ForbiddenException e => Create(StatusCodes.Status403Forbidden, "Forbidden", e.Message),
 
             NotFoundException e => Create(StatusCodes.Status404NotFound, "Resource not found", e.Message),
+
+            PolicyViolationException e => WithViolations(
+                WithCode(Create(StatusCodes.Status422UnprocessableEntity, "Policy violation", e.Message), "policy.violation"),
+                e.Violations),
+
+            ConcurrencyConflictException e => Create(StatusCodes.Status409Conflict, "Concurrent change", e.Message),
 
             DomainRuleException e => WithCode(
                 Create(StatusCodes.Status422UnprocessableEntity, "Business rule violated", e.Message), e.Code),
@@ -78,6 +85,12 @@ internal sealed class ProblemDetailsExceptionHandler(IProblemDetailsService prob
     private static ProblemDetails WithCode(ProblemDetails problem, string code)
     {
         problem.Extensions["code"] = code;
+        return problem;
+    }
+
+    private static ProblemDetails WithViolations(ProblemDetails problem, IReadOnlyList<RuleViolation> violations)
+    {
+        problem.Extensions["violations"] = violations;
         return problem;
     }
 }

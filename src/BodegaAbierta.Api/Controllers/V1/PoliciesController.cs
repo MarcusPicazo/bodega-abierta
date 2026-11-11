@@ -11,8 +11,17 @@ namespace BodegaAbierta.Api.Controllers.V1;
 [Route("api/v{version:apiVersion}/policies")]
 [Authorize]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-public sealed class PoliciesController(PolicySetService policies) : ApiControllerBase
+public sealed class PoliciesController(PolicySetService policies, PolicyEvaluationService evaluation) : ApiControllerBase
 {
+    /// <summary>
+    /// Dry run against the Active policy: { allowed, violations[] } plus the FEFO allocation preview for
+    /// distributions. Nothing is saved. Warnings (e.g. ExpiryAlert) do not make allowed false.
+    /// </summary>
+    [HttpPost("evaluate")]
+    [ProducesResponseType<PolicyEvaluationResponse>(StatusCodes.Status200OK)]
+    public Task<PolicyEvaluationResponse> Evaluate(EvaluatePolicyRequest request, CancellationToken cancellationToken)
+        => evaluation.EvaluateAsync(request, cancellationToken);
+
     /// <summary>Creates a new Draft version (optionally copied from another version).</summary>
     [HttpPost]
     [ProducesResponseType<PolicySetResponse>(StatusCodes.Status201Created)]

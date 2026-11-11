@@ -1,6 +1,10 @@
 using System.Text.Json;
 using BodegaAbierta.Application.Auditing;
+using BodegaAbierta.Application.Beneficiaries;
+using BodegaAbierta.Application.Distributions;
 using BodegaAbierta.Application.Donors;
+using BodegaAbierta.Application.Rules;
+using BodegaAbierta.Application.Rules.Evaluators;
 using BodegaAbierta.Application.Intakes;
 using BodegaAbierta.Application.Inventory;
 using BodegaAbierta.Application.Policies;
@@ -28,6 +32,22 @@ public static class DependencyInjection
         services.AddScoped<InventoryLotService>();
         services.AddScoped<PolicySetService>();
         services.AddScoped<AuditEntryService>();
+
+        // Rules engine (Phase 4): one strategy per rule type; the engine receives them all as IEnumerable.
+        services.AddScoped<IPolicyRuleEvaluator, FefoAllocationEvaluator>();
+        services.AddScoped<IPolicyRuleEvaluator, ExpiryAlertEvaluator>();
+        services.AddScoped<IPolicyRuleEvaluator, PickupWindowEvaluator>();
+        services.AddScoped<IPolicyRuleEvaluator, BeneficiaryLimitEvaluator>();
+        services.AddScoped<IPolicyRuleEvaluator, DonorDropOffHoursEvaluator>();
+        services.AddScoped<IDistributionHistory, DistributionHistory>();
+        services.AddScoped<PolicyEngine>();
+        services.AddScoped<PolicyGate>();
+        services.AddScoped<PolicyEvaluationService>();
+
+        services.AddScoped<BeneficiaryService>();
+        services.AddScoped<PickupSlotService>();
+        services.AddScoped<DistributionPlanner>();
+        services.AddScoped<DistributionService>();
 
         return services;
     }

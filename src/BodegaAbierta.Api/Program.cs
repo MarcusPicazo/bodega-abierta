@@ -21,6 +21,8 @@ builder.Services
     })
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+// ProblemDetails bodies are written with the minimal-API JSON options, not MVC's: enums as strings there too.
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
 builder.Services.AddSingleton(TimeProvider.System);

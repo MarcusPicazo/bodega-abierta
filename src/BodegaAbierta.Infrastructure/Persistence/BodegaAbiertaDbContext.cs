@@ -1,6 +1,8 @@
 using System.Reflection;
 using BodegaAbierta.Application.Abstractions;
 using BodegaAbierta.Domain.Auditing;
+using BodegaAbierta.Domain.Beneficiaries;
+using BodegaAbierta.Domain.Distributions;
 using BodegaAbierta.Domain.Common;
 using BodegaAbierta.Domain.Policies;
 using BodegaAbierta.Domain.Donors;
@@ -37,6 +39,12 @@ public sealed class BodegaAbiertaDbContext(
     public DbSet<PolicySet> PolicySets => Set<PolicySet>();
 
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+
+    public DbSet<Beneficiary> Beneficiaries => Set<Beneficiary>();
+
+    public DbSet<PickupSlot> PickupSlots => Set<PickupSlot>();
+
+    public DbSet<Distribution> Distributions => Set<Distribution>();
 
     /// <summary>
     /// Read by the query filter on every query. Because it is a member of the context (not a captured

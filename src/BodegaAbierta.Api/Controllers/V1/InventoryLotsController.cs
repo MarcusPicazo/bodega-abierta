@@ -14,6 +14,11 @@ public sealed class InventoryLotsController(InventoryLotService lots) : ApiContr
     public Task<PagedResult<InventoryLotResponse>> List([FromQuery] ListInventoryLotsQuery query, CancellationToken cancellationToken)
         => lots.ListAsync(query, cancellationToken);
 
+    /// <summary>Available lots expiring within the Active policy's ExpiryAlert days.</summary>
+    [HttpGet("expiry-alerts")]
+    public Task<ExpiryAlertsResponse> ExpiryAlerts(CancellationToken cancellationToken)
+        => lots.GetExpiryAlertsAsync(cancellationToken);
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType<InventoryLotResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
