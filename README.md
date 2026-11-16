@@ -1,6 +1,14 @@
 # Bodega Abierta — Core API
 
-Open-source (Apache-2.0) warehouse management API for Mexican food banks, by RapiJazz A.C.
+[![CI](https://github.com/MarcusPicazo/bodega-abierta/actions/workflows/ci.yml/badge.svg)](https://github.com/MarcusPicazo/bodega-abierta/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)
+
+**English** · [Español](README.es.md)
+
+Open-source (Apache-2.0) warehouse management API for Mexican food banks, a project of RapiJazz
+(a civil association in formation). The offline-first PWA used in the warehouse is a separate client
+that will consume this API.
 
 > Status: **Phase 4** — rules engine (strategy pattern) over the Active policy set, FEFO allocation for
 > distributions, pickup slots with capacity, and `POST /api/v1/policies/evaluate`
@@ -80,3 +88,35 @@ dotnet test   # integration tests start their own SQL Server container via Testc
 Every tenant-owned entity implements `ITenantOwned`. `BodegaAbiertaDbContext` adds a named global
 query filter (`Tenant`) on `FoodBankId` to all of them. The tenant comes from the `X-FoodBank-Id`
 request header; with no tenant, queries return nothing. See `docs/adr/0001-dotnet-backend.md`.
+
+Query filters only protect reads. A write guard in `SaveChangesAsync` is still pending (see the
+skipped test in `TenantIsolationTests`).
+
+## Roadmap
+
+| Phase | Scope | Status |
+|---|---|---|
+| 1 | Skeleton, multi-tenant DbContext, first migration, CI | ✅ |
+| 2 | Donors, products, donation intake → inventory lots | ✅ |
+| 3 | Versioned policy sets, approval workflow, audit trail | ✅ |
+| 4 | Rules engine, FEFO distributions, pickup slots | ✅ |
+| — | Append-only inventory ledger for offline sync ([ADR 0002](docs/adr/0002-inventory-ledger.md)) | Proposed |
+| 5 | Full test coverage, tenant write guard | In progress |
+| 6 | Impact report, observability, runbook | Planned |
+
+## Documentation
+
+- [Architecture guide (Spanish)](docs/arquitectura.md): layers, the path of one request, where to put new code.
+- [Architecture decision records](docs/adr/).
+- [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md).
+
+## How this project uses AI
+
+The code is written with AI assistance (Claude Code), directed and reviewed by the maintainer.
+`CLAUDE.md` holds the project rules every AI session must follow. Some parts are deliberately left as
+`TODO(name):` tasks to be written by hand, so that every maintainer can work on the code without AI.
+Contributors may use AI too, under the rules in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[Apache License 2.0](LICENSE).
