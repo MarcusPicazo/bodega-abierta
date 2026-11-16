@@ -484,3 +484,6 @@ $RECYCLE.BIN/
 # --- Bodega Abierta ---
 # Local secrets for docker compose (see .env.example)
 .env
+
+# Local, personal instructions for Claude Code (never committed)
+CLAUDE.local.md
