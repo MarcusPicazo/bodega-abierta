@@ -1,69 +1,77 @@
 # Bodega Abierta — Core API (.NET)
 
-## Context
-Bodega Abierta is an open-source (Apache-2.0) warehouse management system for Mexican food banks,
-run by RapiJazz A.C. The repo (github.com/MarcusPicazo/bodega-abierta) is currently empty.
-Decision: the backend is a **C# / ASP.NET Core API**; the offline-first PWA (Next.js) comes later and
-consumes this API. Record this decision in `docs/adr/0001-dotnet-backend.md`.
+Project rules for every AI coding session (Claude Code or similar) in this repository. Human
+contributors: see `CONTRIBUTING.md` and `docs/arquitectura.md`.
 
-## Owner learning goal (important)
-The owner is preparing for a C#/.NET interview. After each phase:
-1. Explain in Spanish what was built, why, and which .NET concept it demonstrates.
-2. Leave 1–2 small `// TODO(Marcus):` tasks for him to implement by hand, then review his code.
-3. Never commit secrets.
+## Context
+Bodega Abierta is an open-source (Apache-2.0) warehouse management system for Mexican food banks, a
+project of RapiJazz (a civil association in formation). This repo is the **C# / ASP.NET Core API**
+(ADR 0001). The offline-first PWA (Next.js) is a separate repository that consumes this API and shares
+no code with it.
+
+## Non-negotiable rules
+- Never commit secrets, connection strings or real personal data. Use `user-secrets` and `.env`.
+- Never claim in code, seed data, docs or UI text that RapiJazz is a *donataria autorizada*, issues
+  tax-deductible receipts, or holds any official certification or folio. It does not yet.
+- Every tenant-owned entity implements `ITenantOwned`. Do not use `IgnoreQueryFilters` without a
+  comment explaining why. Query filters protect reads only; writes need the SaveChanges guard.
+- Personal data (names, phones, emails, addresses of beneficiaries and donors) is protected under
+  Mexico's LFPDPPP (2025). Collect the minimum and keep it out of logs and audit snapshots.
+- No logic in controllers. Domain rules live in `Domain`, use cases in `Application`.
+- Async + `CancellationToken` everywhere.
+- Business errors are `DomainRuleException` with a stable `code` (e.g. `lot.expiry_required`); the PWA
+  depends on these codes, so never rename an existing one.
+- Every behavior change ships with tests. Schema changes ship with their EF Core migration.
+- `TODO(name):` comments are tasks reserved for a person to write by hand. Do not implement them unless
+  that person explicitly asks you to; you may review their code.
 
 ## Stack
-Same as the CIT-Sync Rules API so patterns are reused:
-- .NET LTS, ASP.NET Core controllers, `Asp.Versioning.Mvc`, OpenAPI
-- EF Core + SQL Server (Docker), migrations
-- FluentValidation, ProblemDetails
-- xUnit + NSubstitute + FluentAssertions, Testcontainers.MsSql
-- Serilog, OpenTelemetry, health checks, GitHub Actions CI
+- .NET 10 (LTS), ASP.NET Core controllers, `Asp.Versioning.Mvc` (`/api/v1/...`), OpenAPI
+- EF Core + SQL Server (Docker, host port 1434), migrations in `Infrastructure/Persistence/Migrations`
+- FluentValidation, RFC 9457 ProblemDetails
+- xUnit v3 + NSubstitute + FluentAssertions, Testcontainers.MsSql
+- Health checks (`/health`), GitHub Actions CI; Serilog and OpenTelemetry planned in Phase 6
 
 ## Solution layout
 ```
-src/BodegaAbierta.Api
-src/BodegaAbierta.Application
-src/BodegaAbierta.Domain
-src/BodegaAbierta.Infrastructure
+src/BodegaAbierta.Api              controllers, auth, tenancy, HTTP concerns
+src/BodegaAbierta.Application      services per use case, contracts, validators, rules engine
+src/BodegaAbierta.Domain           entities and business rules, no EF/ASP.NET references
+src/BodegaAbierta.Infrastructure   DbContext, configurations, migrations, audit interceptor
 tests/BodegaAbierta.UnitTests
 tests/BodegaAbierta.IntegrationTests
-docs/adr/, docs/runbook.md, docs/query-tuning.md
+docs/adr/, docs/arquitectura.md
 ```
 
-## Multi-tenancy
-Every row belongs to a `FoodBank` (tenant). Tenant resolved from header/claim; EF Core global query
-filter on `FoodBankId`. Integration test proves tenant A cannot read tenant B.
-
 ## Domain
-- **Donor**, **Product** (category, unit, perishable flag)
-- **InventoryLot**: product, quantity (kg / units), expiry date, location, status
-- **DonationIntake**: donor, lots received, received by, timestamp
-- **Beneficiary** (organization or household), **Distribution**: lots allocated, beneficiary, pickup slot
-- **PickupSlot**: date/time window, capacity
-- **AuditEntry**: automatic via SaveChanges interceptor (before/after JSON, actor, timestamp)
+- **FoodBank** (tenant), **StorageLocation**, **Donor**, **Product** (category, unit, perishable flag)
+- **DonationIntake**: donor, lines → one **InventoryLot** per line (quantity, expiry, location, status)
+- **Beneficiary** (organization or household), **Distribution** (FEFO-allocated lots, beneficiary, pickup slot)
+- **PickupSlot**: date/time window with capacity
+- **PolicySet** / **PolicyRule**: versioned rules per food bank
+- **AuditEntry**: written automatically by `AuditSaveChangesInterceptor` (before/after JSON, actor, timestamp)
 
-## Rules engine (the "schedule manager" part)
-Versioned **PolicySets** per food bank, states Draft → PendingApproval → Active → Retired
-(approved by a coordinator). Rule types:
-- `FefoAllocation` — always allocate the lot that expires first
-- `ExpiryAlert` — flag lots expiring within N days
-- `PickupWindow` — allowed days/hours and slot capacity
-- `BeneficiaryLimit` — max kg per beneficiary per period
-- `DonorDropOffHours` — when donors can deliver
-`POST /api/v1/policies/evaluate` returns `{ allowed, violations[] }` for a proposed distribution or pickup.
+## Rules engine
+PolicySets move Draft → PendingApproval → Active → Retired, approved by a `Coordinator` who did not
+submit them; at most one Active per food bank. Each rule type is an `IPolicyRuleEvaluator` strategy:
+`FefoAllocation`, `ExpiryAlert`, `PickupWindow`, `BeneficiaryLimit`, `DonorDropOffHours`.
+`POST /api/v1/policies/evaluate` is a dry run returning `{ allowed, violations[], allocation[] }`.
 
-## Reporting
-`GET /api/v1/reports/impact?from=&to=` → kg rescued, waste %, CO₂e estimate (configurable factor),
-implemented as an efficient aggregate SQL query (document plan in query-tuning.md).
+## Pending decisions
+- **Inventory ledger (ADR 0002, Proposed):** replace mutable `QuantityOnHand` with append-only
+  `StockMovement` rows in integer grams, with client-generated ids for offline sync. Until it is
+  accepted, do not build new features on top of `QuantityOnHand`.
+- **Database:** possible move from SQL Server to PostgreSQL (Npgsql) to cut hosting costs. Not decided.
+
+## Reporting (Phase 6)
+`GET /api/v1/reports/impact?from=&to=` → kg rescued, waste %, CO₂e estimate (configurable factor), as
+one aggregate SQL query; document the plan in `docs/query-tuning.md`.
 
 ## Phases
-1. Skeleton, Docker SQL Server, DbContext with tenant filter, first migration, CI.
-2. Donors, products, intake → inventory lots (with validation + concurrency).
-3. Policy sets: versioning, approval state machine, audit.
-4. Rules engine + FEFO allocation for distributions + pickup slots.
-5. Tests (unit per rule, integration incl. tenant isolation).
-6. Impact report, observability, runbook, ADRs, README (EN/ES) with AI-usage section.
+1–4 done (skeleton, inventory intake, policies + audit, rules engine + distributions).
+5. Tests: unit per rule, integration incl. tenant isolation on reads and writes.
+6. Impact report, observability, runbook.
 
 ## Conventions
-Async + CancellationToken everywhere, no logic in controllers, commit per phase, work on E: drive.
+One commit per logical change, conventional messages (`feat:`, `fix:`, `docs:`), work on a branch and
+open a pull request; `main` only changes through reviewed PRs with green CI.
