@@ -75,3 +75,12 @@ one aggregate SQL query; document the plan in `docs/query-tuning.md`.
 ## Conventions
 One commit per logical change, conventional messages (`feat:`, `fix:`, `docs:`), work on a branch and
 open a pull request; `main` only changes through reviewed PRs with green CI.
+
+## Working environment
+- Work happens in **Claude Code on the web (cloud sessions)**, not on a local machine.
+- **One branch and one pull request per task.** Do not mix unrelated changes in the same PR.
+- The cloud environment has **no Docker**, so the integration tests (`tests/BodegaAbierta.IntegrationTests`,
+  which use Testcontainers.MsSql) run **only in GitHub Actions**. Locally run only the unit tests:
+  `dotnet test tests/BodegaAbierta.UnitTests`. Check the PR's CI for integration results.
+- If the .NET 10 SDK is missing, install it with `apt-get install -y dotnet-sdk-10.0` (the
+  `dot.net` install script is blocked by the network policy); `global.json` rolls forward to it.
